@@ -8,15 +8,20 @@ import time
 
 
 def all_transformations(db):
-	activities = db.activities
+	pipeline = [
+		{
+			'$group': {
+				'_id':  '$attributes.function_name',
+				'features_name': {'$addToSet':'$attributes.features_name'}
+			}
+		}
 
-	all_act = {}
-	for act in activities.find():
-		function_name = act['attributes']['function_name']
-		all_act.setdefault(function_name,[]).append(act['attributes']['features_name'])
+	]
 
-	for k, v in all_act.items():
-		print(k, ":", v)
+	#all_act = db.command('aggregate','activities',pipeline=pipeline,explain=True)
+	all_act = db.command('explain',{'aggregate':'activities','pipeline':pipeline,'cursor':{}}, verbosity='executionStats')
+
+	return all_act
 
 if __name__ == "__main__":
 
@@ -28,11 +33,22 @@ if __name__ == "__main__":
 		
 		# Getting a Database:
 		db = client[dbname]
+		#activities = db.activities
+
 		
 		time1 = time.time()
-		all_transformations(db)
+		all_act = all_transformations(db)
 		time2 = time.time()
-		#text = '{:s} function took {:.3f} ms'.format('All Transformations', (time2-time1)*1000.0)
+
+		print('executionTimeMillis:')
+		print(all_act['stages'][0]['$cursor']['executionStats']['executionTimeMillis'])
+
+
+		# Print result:
+		#for doc in all_act:
+		#	print(doc)
+
+
 		text = '{:s} function took {:.3f} sec.'.format('All Transformations', (time2-time1))
 		print(text)
 

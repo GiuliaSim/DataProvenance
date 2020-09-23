@@ -7,32 +7,6 @@ import pprint
 import time
 import sys
 
-def get_invalid_records():
-	'''All $D_{*j}$ that were deleted'''
-	# Get invalidated entities id:
-	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
-	
-	# Group entities by record_id
-	records = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.record_id', 'entities': {'$addToSet': '$identifier'}}} \
-	])
-
-	# Get deleted records
-	# If all record entities are invalidated, the record is deleted
-	invalid_records = []
-	for record in records:
-		is_deleted = True
-		ents = record['entities']
-		record_id = record['_id']
-		for ent in ents:
-			if ent not in invalid_ents_id:
-				is_deleted = False
-				break
-		if is_deleted:
-			invalid_records.append(record_id)
-
-	return get_preprocessing_methods(invalid_records)
-
 def get_preprocessing_methods(invalid_records):
 	# Get the preprocessing methods that deleted the records
 	out = entities.aggregate([ \
@@ -58,6 +32,24 @@ def get_preprocessing_methods(invalid_records):
 	])
 	return out
 
+def get_invalid_records():
+	'''All $D_{i*}$ that were deleted'''
+	# Get invalidated entities id:
+	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
+	
+	# Group entities by record_id
+	# Get deleted records: if all record entities are invalidated, the record is deleted
+	invalid_records = entities.aggregate([ \
+		{'$group': {'_id': '$attributes.record_id', 'entities': {'$addToSet': '$identifier'}}}, \
+		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
+		{'$group': {'_id': 'null', 'records': {'$push':'$_id'}}}, \
+		{'$project':{'records':1,'_id': 0}}
+	])
+
+	invalid_records = list(invalid_records)[0]['records'] if len(list(invalid_records)) > 0 else []
+
+	return invalid_records
+
 
 if __name__ == "__main__":
 
@@ -76,15 +68,22 @@ if __name__ == "__main__":
 		relations = db.relations
 
 		time1 = time.time()
-		# Get preprocessing method that deleted the records:
-		invalid_records = get_invalid_records()
-		print('PREPROCESSING METHODS THAT DELETED RECORDS:')
 
-		for r in invalid_records:
-			pprint.pprint(r)
+		# Get the recordif that were deleted:
+		invalid_records = get_invalid_records()
+		# Get preprocessing method that deleted the records:
+		methods = get_preprocessing_methods(invalid_records)
+
+
+		# Get preprocessing method that deleted the records:
+		#invalid_records = get_invalid_records()
 
 		time2 = time.time()
-		#text = '{:s} function took {:.3f} ms'.format('Record Invalidation', (time2-time1)*1000.0)
+
+		print('PREPROCESSING METHODS THAT DELETED RECORDS:')
+		for r in methods:
+			pprint.pprint(r)
+
 		text = '{:s} function took {:.3f} sec.'.format('Record Invalidation', (time2-time1))
 		print(text)
 		

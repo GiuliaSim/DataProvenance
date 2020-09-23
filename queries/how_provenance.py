@@ -55,7 +55,7 @@ if __name__ == "__main__":
 		rand_num = random.randint(0,len(output_entities))
 
 		entity_id = output_entities[rand_num]['identifier']
-		#entity_id = 'entity:756e3b94-b130-4135-b5d8-611ef1eb39a7'
+		entity_id = 'entity:e8d47bb2-65e1-4195-a5da-7f2a5406dff7'
 
 		print('How provenance of: ' + entity_id)
 

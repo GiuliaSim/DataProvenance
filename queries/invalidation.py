@@ -10,7 +10,14 @@ import sys
 def get_invalid_items():
 	'''All $d_{ij}$ that were deleted'''
 	ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
-	invalid_ents = entities.find({'identifier': {'$in': ents_id}})
+
+	invalid_ents = entities.aggregate([ \
+		{'$group': {'_id': {'feature_name':'$attributes.feature_name','index':'$attributes.index'}, 'entities': {'$addToSet': '$identifier'}}}, \
+		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': ents_id}}}}}, \
+		{'$project': {'item': '$_id', '_id': 0}}
+	])
+
+	#invalid_ents = entities.find({'identifier': {'$in': ents_id}})
 	return invalid_ents
 
 def get_invalid_features():
@@ -19,23 +26,12 @@ def get_invalid_features():
 	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
 	
 	# Group entities by feature_name
-	features = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.feature_name', 'entities': {'$addToSet': '$identifier'}}} \
+	# Get deleted features: if all feature entities are invalidated, the feature is deleted
+	invalid_features = entities.aggregate([ \
+		{'$group': {'_id': '$attributes.feature_name', 'entities': {'$addToSet': '$identifier'}}}, \
+		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
+		{'$project': {'feature_name': '$_id', '_id': 0}}
 	])
-
-	# Get deleted features
-	# If all feature entities are invalidated, the feature is deleted
-	invalid_features = []
-	for feature in features:
-		is_deleted = True
-		ents = feature['entities']
-		feature_name = feature['_id']
-		for ent in ents:
-			if ent not in invalid_ents_id:
-				is_deleted = False
-				break
-		if is_deleted:
-			invalid_features.append(feature_name)
 
 	return invalid_features
 
@@ -46,23 +42,12 @@ def get_invalid_records():
 	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
 	
 	# Group entities by record_id
-	records = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.record_id', 'entities': {'$addToSet': '$identifier'}}} \
+	# Get deleted records: if all record entities are invalidated, the record is deleted
+	invalid_records = entities.aggregate([ \
+		{'$group': {'_id': '$attributes.record_id', 'entities': {'$addToSet': '$identifier'}}}, \
+		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
+		{'$project': {'record_id': '$_id', '_id': 0}}
 	])
-
-	# Get deleted records
-	# If all record entities are invalidated, the record is deleted
-	invalid_records = []
-	for record in records:
-		is_deleted = True
-		ents = record['entities']
-		record_id = record['_id']
-		for ent in ents:
-			if ent not in invalid_ents_id:
-				is_deleted = False
-				break
-		if is_deleted:
-			invalid_records.append(record_id)
 
 	return invalid_records
 
@@ -83,21 +68,41 @@ if __name__ == "__main__":
 		relations = db.relations
 
 		time1 = time.time()
+
 		# Get the entities that were deleted:
 		invalid_ents = get_invalid_items()
+		
 
 		# Get the features name that were deleted:
 		invalid_features = get_invalid_features()
-		print('DELETED FEATURES NAME:')
-		pprint.pprint(invalid_features)
+		
 
 		# Get the record_id that were deleted:
 		invalid_records = get_invalid_records()
-		print('DELETED RECORDS ID:')
-		pprint.pprint(invalid_records)
 
 		time2 = time.time()
-		#text = '{:s} function took {:.3f} ms'.format('Invalidation', (time2-time1)*1000.0)
+
+		for item in invalid_ents:
+			pprint.pprint(item)
+
+		invalid_ents_count = len(list(invalid_ents))
+		print('Count of invalidated entities: ' + str(invalid_ents_count))
+
+		# Print deleted features names
+		#for elem in invalid_features:
+			#pprint.pprint(elem)
+
+
+		invalid_features_count = len(list(invalid_features))
+		print('Count of invalidated features: ' + str(invalid_features_count))
+
+		# Print deleted record id
+		#for elem in invalid_records:
+			#pprint.pprint(elem)
+
+		invalid_records_count = len(list(invalid_records))
+		print('Count of invalidated records: ' + str(invalid_records_count))
+
 		text = '{:s} function took {:.3f} sec.'.format('Invalidation', (time2-time1))
 		print(text)
 		
