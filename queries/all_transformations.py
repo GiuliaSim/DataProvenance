@@ -40,8 +40,8 @@ if __name__ == "__main__":
 		all_act = all_transformations(db)
 		time2 = time.time()
 
-		print('executionTimeMillis:')
-		print(all_act['stages'][0]['$cursor']['executionStats']['executionTimeMillis'])
+		millis = all_act['stages'][0]['$cursor']['executionStats']['executionTimeMillis']
+		print('executionTimeMillis: ' + str(millis))
 
 
 		# Print result:
@@ -56,5 +56,5 @@ if __name__ == "__main__":
 		client.close()
 
 	else:
-		print('[ERROR] usage: create_mongodb.py <db_name> <files_path>')
+		print('[ERROR] usage: all_transformations.py <db_name>')
 

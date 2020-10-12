@@ -29,7 +29,7 @@ def main(opt):
 	
 	# OPERATION O
 	# select relevant columns
-	df =df[['c_charge_degree', 'race', 'two_year_recid', 'c_jail_in', 'c_jail_out']]
+	df =df[['age', 'c_charge_degree', 'race', 'sex', 'priors_count', 'days_b_screening_arrest', 'two_year_recid', 'c_jail_in', 'c_jail_out']]
 
 	d = p.get_prov_dim_reduction(df)
 
@@ -67,7 +67,7 @@ def main(opt):
 
 	d = p.get_prov_dim_reduction(df)
 	
-	# OPERATION 5
+	# OPERATION 6
 	# M: misconduct, F: felony
 	df.c_charge_degree = [0 if s == 'M' else 1 for s in df.c_charge_degree]
 

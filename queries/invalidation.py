@@ -9,47 +9,71 @@ import sys
 
 def get_invalid_items():
 	'''All $d_{ij}$ that were deleted'''
-	ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
+	# Get the feature name of the output_entities
+	output_features = output_entities.aggregate([ \
+		{'$group': {'_id': '$attributes.feature_name'}}
+	],allowDiskUse=True)
+	output_features = [i['_id'] for i in output_features]
 
-	invalid_ents = entities.aggregate([ \
-		{'$group': {'_id': {'feature_name':'$attributes.feature_name','index':'$attributes.index'}, 'entities': {'$addToSet': '$identifier'}}}, \
-		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': ents_id}}}}}, \
-		{'$project': {'item': '$_id', '_id': 0}}
-	])
+	# Get the indexes of the output_entities
+	output_indexes = output_entities.aggregate([ \
+		{'$group': {'_id': '$attributes.index'}}
+	],allowDiskUse=True)
+	output_indexes = [i['_id'] for i in output_indexes]
 
-	#invalid_ents = entities.find({'identifier': {'$in': ents_id}})
-	return invalid_ents
+	invalid_items = entities.aggregate([
+		{'$match': {'$or': [
+			{'attributes.feature_name': { '$nin': output_features }}, 
+			{'attributes.index': { '$nin': output_indexes }}
+		]}},
+		{'$group': {
+			'_id': {'feature_name':'$attributes.feature_name', 'index':'$attributes.index'},
+			'maxInstance': {'$max':'$attributes.instance'},
+			#'identifier': {'$first': '$identifier'}
+			#'entity': {'$push':'$$ROOT'}
+		}}
+	],allowDiskUse = True)
+
+	return invalid_items
 
 def get_invalid_features():
 	'''All $D_{*j}$ that were deleted'''
-	# Get invalidated entities id:
-	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
-	
-	# Group entities by feature_name
-	# Get deleted features: if all feature entities are invalidated, the feature is deleted
-	invalid_features = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.feature_name', 'entities': {'$addToSet': '$identifier'}}}, \
-		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
-		{'$project': {'feature_name': '$_id', '_id': 0}}
+	# Get the feature name of the output_entities
+	output_features = output_entities.aggregate([ \
+		{'$group': {'_id': '$attributes.feature_name', 'ids': {'$sum': 1}}}
+	],allowDiskUse=True)
+	output_features = [i['_id'] for i in output_features]
+
+	# Get all feature_name of the dataset
+	all_features = entities.aggregate([
+		{'$group': {'_id': '$attributes.feature_name'}}
 	])
+	all_features = [i['_id'] for i in all_features]
+
+	# Get the feature name of the invalidated entities
+	invalid_features = diff(all_features, output_features)
 
 	return invalid_features
 
 
 def get_invalid_records():
 	'''All $D_{i*}$ that were deleted'''
-	# Get invalidated entities id:
-	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
-	
-	# Group entities by record_id
-	# Get deleted records: if all record entities are invalidated, the record is deleted
-	invalid_records = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.record_id', 'entities': {'$addToSet': '$identifier'}}}, \
-		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
-		{'$project': {'record_id': '$_id', '_id': 0}}
-	])
+	# Get the indexes of the output_entities
+	output_indexes = output_entities.aggregate([ \
+		{'$group': {'_id': '$attributes.index'}}
+	],allowDiskUse=True)
+	output_indexes = [i['_id'] for i in output_indexes]
 
-	return invalid_records
+	# Get all feature_name of the dataset
+	all_indexes = entities.aggregate([
+		{'$group': {'_id': '$attributes.index'}}
+	])
+	all_indexes = [i['_id'] for i in all_indexes]
+
+	# Get the feature name of the invalidated entities
+	invalid_indexes = diff(all_indexes, output_indexes)
+
+	return invalid_indexes
 
 if __name__ == "__main__":
 
@@ -64,26 +88,25 @@ if __name__ == "__main__":
 
 		# Get entities, activities and relations mongodb collection:
 		entities = db.entities
-		activities = db.activities
-		relations = db.relations
+		#activities = db.activities
+		#relations = db.relations
+		output_entities = db['output_entities']
+
+		diff = lambda l1, l2: [x for x in l1 if x not in l2]
+
 
 		time1 = time.time()
 
 		# Get the entities that were deleted:
 		invalid_ents = get_invalid_items()
-		
 
 		# Get the features name that were deleted:
 		invalid_features = get_invalid_features()
-		
 
 		# Get the record_id that were deleted:
 		invalid_records = get_invalid_records()
-
+		
 		time2 = time.time()
-
-		for item in invalid_ents:
-			pprint.pprint(item)
 
 		invalid_ents_count = len(list(invalid_ents))
 		print('Count of invalidated entities: ' + str(invalid_ents_count))

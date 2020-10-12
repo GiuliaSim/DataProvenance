@@ -2,6 +2,7 @@
 # Input: $D_{i*}$
 
 import pymongo
+import numpy as np
 import pandas as pd
 import pprint
 import time
@@ -9,22 +10,19 @@ import sys
 import random
 
 def get_random_record():
-	# Get invalidated entities id
-	invalidated_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
 
-	# Get random element identifier $d_{ij}$:
-	output_entities = list(entities.aggregate([
-		{'$match': {'identifier': {'$nin': invalidated_ents_id}}}
-	]))
+	# Get output_entities collection
+	output_entities = db['output_entities']
 
-	rand_num = random.randint(0,len(output_entities))
+	# Get random document on output_entities collection
+	random_ent = list(output_entities.aggregate([{'$sample': {'size': 1}}]))
 
-	# Record identifier $D_{i*}$:
-	record_id = output_entities[rand_num]['attributes']['record_id']
+	# Get feature_name
+	record_id = random_ent[0]['attributes']['record_id']
 
 	return record_id
 
-def get_record_operation(record_id):
+def get_record_operation2(record_id):
 	# Get list of activities id related to the record:
 	out = entities.aggregate([
 		{'$match': \
@@ -46,9 +44,10 @@ def get_record_operation(record_id):
 	return out
 
 
-def get_record_operation2(record_id):
+def get_record_operation(record_id):
 	# Get the entities of the record:
 	entities_id = entities.find({'attributes.record_id': record_id}, {'identifier': 1, '_id': 0}).distinct('identifier')
+	#print(len(entities_id))
 
 	# Get list of activities id related to the record:
 	out = relations.aggregate([ \
@@ -83,13 +82,14 @@ if __name__ == "__main__":
 		time1 = time.time()
 
 		# Get the activities id that were applied to record_id:
-		acts = get_record_operation2(record_id)
+		acts = get_record_operation(record_id)
 
 		time2 = time.time()
 
 		# Print list of result activities identifier
 		acts = list(acts)
-		pprint.pprint(acts)
+		#pprint.pprint(acts)
+		print('Number of activities: ' + str(len(acts)))
 
 		text = '{:s} function took {:.3f} sec.'.format('Record Operation', (time2-time1))
 		print(text)

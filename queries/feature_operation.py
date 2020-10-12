@@ -7,20 +7,17 @@ import pprint
 import time
 import sys
 import random
+import numpy as np
 
 def get_random_feature():
-	# Get invalidated entities id
-	invalidated_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
 
-	# Get random element identifier $d_{ij}$:
-	output_entities = list(entities.aggregate([
-		{'$match': {'identifier': {'$nin': invalidated_ents_id}}}
-	]))
+	# Get output_entities collection
+	output_entities = db['output_entities']
 
-	rand_num = random.randint(0,len(output_entities))
-
-	# Feature name of $D_{*j}$:
-	feature_name = output_entities[rand_num]['attributes']['feature_name']
+	# Get random document on output_entities collection
+	random_ent = list(output_entities.aggregate([{'$sample': {'size': 1}}]))
+	# Get feature_name
+	feature_name = random_ent[0]['attributes']['feature_name']
 
 	return feature_name
 
@@ -44,7 +41,8 @@ if __name__ == "__main__":
 		relations = db.relations
 
 		feature_name = get_random_feature()
-		feature_name = 'checking'
+		#feature_name = 'workclass'
+		#feature_name = 'checking'
 		print('Feature Operation of: ' + feature_name)
 
 		time1 = time.time()
@@ -53,11 +51,11 @@ if __name__ == "__main__":
 
 		#pprint.pprint(methods.explain())
 
+		time2 = time.time()
+
 		# Print description of input entities and preprocessing methods that created the element $d_{ij}$:
 		for act in methods:
 			pprint.pprint(act)
-
-		time2 = time.time()
 
 		executionTimeMillis = methods.explain()['executionStats']['executionTimeMillis']
 		print('executionTimeMillis of Feature Operation: ' + str(executionTimeMillis))
@@ -70,5 +68,5 @@ if __name__ == "__main__":
 		# Close Mongodb connection:
 		client.close()
 	else:
-		print('[ERROR] usage: dataset_operation.py <db_name>')
+		print('[ERROR] usage: feature_operation.py <db_name>')
 

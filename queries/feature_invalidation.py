@@ -8,31 +8,38 @@ import time
 import sys
 
 def get_preprocessing_methods(invalid_features):
+
+	regex = '|'.join(invalid_features)
+
 	# Get the preprocessing methods that deleted the features
 	out = activities.aggregate([ \
-		{'$match': {'attributes.features_name':{'$in':invalid_features}}},
-		{'$sort': {'attributes.operation_number':-1}},
-		{'$group': {'_id': '$attributes.features_name', 'function_name': {'$first': '$attributes.function_name'}}}, \
-		{'$project': {'_id':0,'feature_name':'$_id', 'function_name':1}} \
+		{'$match': {'attributes.features_name':{'$regex':'.*' + regex + '*.'}}},
+		#{'$sort': {'attributes.operation_number':-1}},
+		#{'$group': {'_id': '$attributes.features_name', 'function_name': {'$first': '$attributes.function_name'}}}, \
+		#{'$project': {'_id':0,'feature_name':'$_id', 'function_name':1}} \
 	])
 	return out
 
 
+
 def get_invalid_features():
 	'''All $D_{*j}$ that were deleted'''
-	# Get invalidated entities id:
-	invalid_ents_id = relations.find({'prov:relation_type': 'wasInvalidatedBy'}, {'prov:entity': 1, '_id': 0}).distinct('prov:entity')
+	diff = lambda l1, l2: [x for x in l1 if x not in l2]
+	
+	# Get the feature name of the output_entities
+	output_features = output_entities.aggregate([ \
+		{'$group': {'_id': '$attributes.feature_name', 'ids': {'$sum': 1}}}
+	],allowDiskUse=True)
+	output_features = [i['_id'] for i in output_features]
 
-	# Group entities by feature_name
-	# Get deleted features: if all feature entities are invalidated, the feature is deleted
-	invalid_features = entities.aggregate([ \
-		{'$group': {'_id': '$attributes.feature_name', 'entities': {'$addToSet': '$identifier'}}}, \
-		{'$match': {'entities': {'$not': {'$elemMatch': {'$nin': invalid_ents_id}}}}}, \
-		{'$group': {'_id': 'null', 'features': {'$push':'$_id'}}}, \
-		{'$project':{'features':1,'_id': 0}}
+	# Get all feature_name of the dataset
+	all_features = entities.aggregate([
+		{'$group': {'_id': '$attributes.feature_name'}}
 	])
+	all_features = [i['_id'] for i in all_features]
 
-	invalid_features = list(invalid_features)[0]['features'] if len(list(invalid_features)) > 0 else []
+	# Get the feature name of the invalidated entities
+	invalid_features = diff(all_features, output_features)
 
 	return invalid_features
 
@@ -52,6 +59,7 @@ if __name__ == "__main__":
 		entities = db.entities
 		activities = db.activities
 		relations = db.relations
+		output_entities = db['output_entities']
 
 		time1 = time.time()
 
@@ -62,11 +70,14 @@ if __name__ == "__main__":
 
 		time2 = time.time()
 
-		print('PREPROCESSING METHODS THAT DELETED FEATURES:')
-		for f in methods:
-			pprint.pprint(f)
+		#print('PREPROCESSING METHODS THAT DELETED FEATURES:')
+		#for f in methods:
+		#	pprint.pprint(f)
 
-		text = '{:s} function took {:.3f} sec.'.format('Invalidation', (time2-time1))
+		#print('Number of deleted features: ' + str(len(invalid_features)))
+		print('Number of preprocessing methods: ' + str(len(list(methods))))
+
+		text = '{:s} function took {:.3f} sec.'.format('Feature Invalidation', (time2-time1))
 		print(text)
 		
 		# Close Mongodb connection:
