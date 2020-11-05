@@ -35,7 +35,9 @@ Ad esempio, **prov_acquisition/prov_results/German**
     Ad esempio, **python preprocessing_methods/FT_prov.py -i datasets/Trade_SF3.csv -op**
     
 Anche in questo caso il risultato verrà memorizzato nella cartella *prov_acquisition/prov_results/<nome_dataset>*.
-Ad esempio, **prov_acquisition/prov_results/Trade_SF3**
+Ad esempio, **prov_acquisition/prov_results/Trade_SF3**.
+
+NOTA: I dataset TPC-DI non sono presenti in questo repository. Vanno generati attraverso il generatore DIGen. 
 
 
 ### Interrogazione
