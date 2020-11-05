@@ -1,7 +1,6 @@
 # DataProvenance
 Questo repository contiene il codice del progetto di tesi relativo alla data provenance nell'ambito della pre-elaborazione dei dati nella data science: *Capturing and querying fine-grained provenance of preprocessing pipelines in data science*.
-
-Il codice è scritto in [Python](https://www.python.org/)
+Il codice è scritto in [Python](https://www.python.org/).
 
 ## Organizzazione del repository
 Questo repository è organizzato in due sezioni (cartelle) principali:
@@ -40,3 +39,13 @@ Ad esempio, **prov_acquisition/prov_results/Trade_SF3**
 
 
 ### Interrogazione
+Per poter eseguire le interrogazioni sulla data provenance, i dati creati nella fase di acquisizione vengono inseriti nel database [MongoDB](https://www.mongodb.com/):
+1. Creare il database con il comando `python queries/create_mongodb.py <db_name> <files_path>`.
+Ad esempio, **python queries/create_mongodb.py German prov_acquisition/prov_results/German**
+2. Per poter eseguire le interrogazioni è inoltre necessario generare la collection di output che contiene le entità di output della pipeline di pre-elaborazione. Vengono inoltre creati degli indici per ottimizzare le interrogazioni. 
+      * Posizionarsi nella cartella *queries/*
+      * Eseguire il comando `python get_output_entities.py <db_name>`
+      Ad esempio, **python get_output_entities.py German**
+3. Infine, è possibile eseguire le interrogazioni con il comando `python *.py <db_name>`
+      Ad esempio, **python all_transformations.py German**
+      
